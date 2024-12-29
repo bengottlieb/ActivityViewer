@@ -11,30 +11,57 @@ import CoreMotion
 
 struct ActivityTimeline: Equatable, Hashable, Sendable {
 	var segments: [Segment] = []
-	var duration: TimeInterval
+	var collapsed: [Segment] = []
+	var tolerance = 10.0 { didSet { updateCollapsed() }}
 	
+	var duration: TimeInterval {
+		guard let first = segments.first, let last = segments.last else { return 0 }
+		
+		return last.startDate.timeIntervalSince(first.startDate)
+	}
+
 	func duration(for activity: Segment.Activity) -> TimeInterval {
 		segments.filter { $0.contains(activity) }.compactMap { $0.duration }.sum()
 	}
 	
+	mutating func updateCollapsed(for activities: [Segment.Activity] = [.driving, .walking, .running, .cycling]) {
+		var indexesToRemove: [Int] = []
+		for index in segments.indices.dropFirst(2).dropLast(2) {
+			if !activities.contains(segments[index].primaryActivity) { continue }
+			
+			if (segments[index - 1].primaryActivity == .unknown || segments[index - 1].primaryActivity == .stationary), segments[index - 2].primaryActivity == segments[index].primaryActivity {
+				segments[index].startDate = segments[index - 2].startDate
+				indexesToRemove.append(index - 2)
+				indexesToRemove.append(index - 1)
+			} else if segments[index - 1].primaryActivity == segments[index].primaryActivity {
+				segments[index].startDate = segments[index - 1].startDate
+				indexesToRemove.append(index - 1)
+			}
+		}
+		
+		for index in indexesToRemove.reversed() {
+			segments.remove(at: index)
+		}
+	}
+	
 	init(samples: [CMMotionActivity.Saved]) {
+		load(samples: samples)
+	}
+	
+	mutating func load(samples: [CMMotionActivity.Saved]) {
+		segments = []
 		for index in samples.indices {
 			let endDate = index < samples.count - 1 ? samples[index + 1].startDate : nil
 			
 			segments.append(Segment(source: samples[index], end: endDate))
 		}
-		
-		if segments.count > 1 {
-			duration = segments.last!.startDate.timeIntervalSince(segments.first!.startDate)
-		} else {
-			duration = 0
-		}
+		updateCollapsed()
 	}
 	
 	struct Segment: Codable, Hashable, Sendable, Identifiable {
 		var id: Date { startDate }
-		let startDate: Date
-		let endDate: Date?
+		var startDate: Date
+		var endDate: Date?
 		let activities: [Activity]
 		
 		var timeDescription: String {
@@ -70,11 +97,11 @@ struct ActivityTimeline: Equatable, Hashable, Sendable {
 			
 			var activities: [Activity] = []
 			
-			if source.stationary { activities.append(.stationary) }
-			if source.walking { activities.append(.walking) }
-			if source.running { activities.append(.running) }
-			if source.cycling { activities.append(.cycling) }
 			if source.automotive { activities.append(.driving) }
+			if source.running { activities.append(.running) }
+			if source.walking { activities.append(.walking) }
+			if source.cycling { activities.append(.cycling) }
+			if source.stationary { activities.append(.stationary) }
 			if source.unknown { activities.append(.unknown) }
 			
 			self.activities = activities

@@ -9,7 +9,7 @@ import Suite
 
 struct ActivityTimelineView: View {
 	let timeline: ActivityTimeline
-	let secondHeight: Double = 0.1
+	let secondHeight: Double = 0.05
 	
 	var body: some View {
 		VStack(spacing: 0) {
