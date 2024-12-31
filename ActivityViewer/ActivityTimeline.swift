@@ -25,23 +25,39 @@ struct ActivityTimeline: Equatable, Hashable, Sendable {
 	}
 	
 	mutating func updateCollapsed(for activities: [Segment.Activity] = [.driving, .walking, .running, .cycling]) {
-		var indexesToRemove: [Int] = []
+		for index in segments.indices.dropFirst(1) {
+			if segments[index - 1].isCompacted || segments[index].primaryActivity == .unknown { continue }
+
+			if index > 1, segments[index].primaryActivity == segments[index - 2].primaryActivity {
+				
+				segments[index - 1].isCompacted = true
+				segments[index - 2].isCompacted = true
+				segments[index].startDate = segments[index - 2].startDate
+				continue
+			}
+
+			if segments[index].primaryActivity == segments[index - 1].primaryActivity {
+				
+				segments[index - 1].isCompacted = true
+				segments[index].startDate = segments[index - 1].startDate
+				continue
+			}
+		}
+
 		for index in segments.indices.dropFirst(2).dropLast(2) {
-			if !activities.contains(segments[index].primaryActivity) { continue }
+			if !activities.contains(segments[index].primaryActivity) || segments[index].isCompacted { continue }
 			
 			if (segments[index - 1].primaryActivity == .unknown || segments[index - 1].primaryActivity == .stationary), segments[index - 2].primaryActivity == segments[index].primaryActivity {
 				segments[index].startDate = segments[index - 2].startDate
-				indexesToRemove.append(index - 2)
-				indexesToRemove.append(index - 1)
+				segments[index - 1].isCompacted = true
+				segments[index - 2].isCompacted = true
 			} else if segments[index - 1].primaryActivity == segments[index].primaryActivity {
 				segments[index].startDate = segments[index - 1].startDate
-				indexesToRemove.append(index - 1)
+				segments[index - 1].isCompacted = true
 			}
 		}
 		
-		for index in indexesToRemove.reversed() {
-			segments.remove(at: index)
-		}
+		segments = segments.filter { !$0.isCompacted }
 	}
 	
 	init(samples: [CMMotionActivity.Saved]) {
@@ -63,6 +79,7 @@ struct ActivityTimeline: Equatable, Hashable, Sendable {
 		var startDate: Date
 		var endDate: Date?
 		let activities: [Activity]
+		var isCompacted = false
 		
 		var timeDescription: String {
 			guard let endDate else { return startDate.formatted(date: .omitted, time: .shortened) + "-" }

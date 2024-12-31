@@ -9,11 +9,13 @@ import Suite
 
 struct ActivityTimelineView: View {
 	let timeline: ActivityTimeline
-	let secondHeight: Double = 0.05
+	var secondHeight: Double = 0.05
 	
 	var body: some View {
 		VStack(spacing: 0) {
-			ForEach(timeline.segments) { segment in
+			ForEach(timeline.segments.indices, id: \.self) { index in
+				let segment = timeline.segments[index]
+				
 				if let duration = segment.duration {
 					let height = secondHeight * duration
 					Rectangle()
@@ -21,9 +23,10 @@ struct ActivityTimelineView: View {
 						.frame(height: height)
 						.overlay {
 							if height > 12 {
-								Text(segment.visibleDescription + ", " + segment.timeDescription)
+								Text(//"\(index). " +
+									segment.visibleDescription + ", " + segment.timeDescription)
 									.foregroundStyle(segment.primaryActivity.color.textColor)
-									.font(.caption)
+									.font(.callout)
 							}
 						}
 				}

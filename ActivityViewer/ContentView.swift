@@ -12,6 +12,7 @@ import CoreMotion
 struct ContentView: View {
 	@State private var timeline: ActivityTimeline?
 	@State private var date = Date.now.previousDay
+	@State private var secondHeight = 0.05
 	
 	func buildTimeline() {
 		let samples: [CMMotionActivity.Saved] = try! .loadJSON(file: Bundle.main.url(forResource: "motion_samples", withExtension: "txt"))
@@ -25,7 +26,7 @@ struct ContentView: View {
 				ScrollView {
 					VStack {
 						TimelineTotalsView(timeline: timeline)
-						ActivityTimelineView(timeline: timeline)
+						ActivityTimelineView(timeline: timeline, secondHeight: secondHeight)
 					}
 				}
 			}
@@ -39,6 +40,8 @@ struct ContentView: View {
 				DatePicker("", selection: $date, displayedComponents: [.date])
 					.fixedSize()
 			}
+			
+			Slider(value: $secondHeight, in: 0.005...0.15, step: 0.005)
 		}
 		.padding()
 		.onAppear { buildTimeline() }
